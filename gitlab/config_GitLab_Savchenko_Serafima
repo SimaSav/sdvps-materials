@@ -1,0 +1,75 @@
+```
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/bionic64"
+
+  config.vm.network "private_network", ip: "192.168.121.50"
+  #config.vm.network "private_network", type: "dhcp"
+  #config.vm.network "private_network", ip: "192.168.122.10"
+  config.vm.trigger.before :up do |trigger|
+    trigger.warn = "PLEASE"
+  end
+#  config.vm.network "private_network", 
+#    ip: "192.168.121.50", 
+#    libvirt__network_name: "vagrant-libvirt",
+#    libvirt__dhcp_enabled: false
+
+#  config.vm.network "private_network", 
+#    type: "dhcp",
+#    libvirt__dhcp_host: { id: "01:52:54:00:12:34:56", ip: "192.168.121.50" }
+
+
+  #config.vm.disk :disk, size: "15GB", primary: true
+
+
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.management_network_name = "vagrant-libvirt"
+    #libvirt.management_network_mac = "52:54:00:12:34:56"
+    libvirt.qemu_use_session = false
+    #libvirt.storage :file, size: '20G', type: 'qcow2'
+    libvirt.disk_bus = 'virtio'
+    libvirt.memory = "6144"
+    libvirt.uri = "qemu:///system"
+  end
+
+  #config.vm.provider :libvirt do |lv|
+  #  lv.qemu_use_session = false
+  #  lv.uri = "qemu:///system"
+  #  lv.memory = "6144"
+  #end
+
+#  config.vm.provider "virtualbox" do |vb|
+  #   # Display the VirtualBox GUI when booting the machine
+  #   vb.gui = true
+  #
+  #   # Customize the amount of memory on the VM:
+#    vb.memory = "6144"
+#  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    # install docker & docker-compose
+    apt-get install -y docker.io docker-compose
+    # install gitlab: https://about.gitlab.com/install/#ubuntu
+    apt-get install -y curl openssh-server ca-certificates tzdata perl
+    curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+    sudo EXTERNAL_URL="http://gitlab.localdomain" apt-get install gitlab-ee
+    # pull some images in advance
+    docker pull gitlab/gitlab-runner:latest
+    docker pull sonarsource/sonar-scanner-cli:latest
+    docker pull golang:1.17
+    docker pull docker:latest
+    # set sysctl for sonarqube
+    sysctl vm.max_map_count=262144
+    # run sonarqube
+    # cd /vagrant && docker-compose up -d
+    # add some records to /etc/hosts
+    echo -e "192.168.121.50\tubuntu-bionic\tubuntu-bionic" >> /etc/hosts
+    echo -e "192.168.121.50\tgitlab.localdomain\tgitlab" >> /etc/hosts
+  SHELL
+end
+
+```
